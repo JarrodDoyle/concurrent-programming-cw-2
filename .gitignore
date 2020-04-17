@@ -1,3 +1,5 @@
 lab3/
 lab4/
 *.o
+*.bin
+*.elf
