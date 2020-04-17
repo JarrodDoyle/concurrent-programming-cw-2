@@ -35,20 +35,22 @@ void dispatch( ctx_t* ctx, pcb_t* prev, pcb_t* next ) {
   return;
 }
 
-// Round robin, fixed n=N=2, scheduler
+// Round robin, 1 <= n <= N , scheduler
 void schedule( ctx_t* ctx ) {
-  if     ( executing->pid == procTab[ 0 ].pid ) {
-    dispatch( ctx, &procTab[ 0 ], &procTab[ 1 ] );  // context switch P_1 -> P_2
-
-    procTab[ 0 ].status = STATUS_READY;             // update   execution status  of P_1 
-    procTab[ 1 ].status = STATUS_EXECUTING;         // update   execution status  of P_2
+  int i,j;
+  for (i=0; i<MAX_PROCS; i++) {
+    if (procTab[i].status != STATUS_INVALID && procTab[i].pid == executing->pid) {
+      break;
+    }
   }
-  else if( executing->pid == procTab[ 1 ].pid ) {
-    dispatch( ctx, &procTab[ 1 ], &procTab[ 0 ] );  // context switch P_2 -> P_1
-
-    procTab[ 1 ].status = STATUS_READY;             // update   execution status  of P_2
-    procTab[ 0 ].status = STATUS_EXECUTING;         // update   execution status  of P_1
+  for (j=1; j<=MAX_PROCS; j++) {
+    if (procTab[(i+j)%MAX_PROCS].status != STATUS_INVALID) {
+      break;
+    }
   }
+  dispatch(ctx, &procTab[i], &procTab[(i+j)%MAX_PROCS]);
+  procTab[i].status = STATUS_READY;
+  procTab[(i+j)%MAX_PROCS].status = STATUS_EXECUTING;
 
   return;
 }
