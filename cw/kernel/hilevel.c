@@ -53,10 +53,10 @@ void schedule( ctx_t* ctx ) {
   return;
 }
 
-extern void     main_P1(); 
-extern uint32_t tos_P1;
-extern void     main_P2(); 
-extern uint32_t tos_P2;
+extern void     main_P3(); 
+extern uint32_t tos_P3;
+extern void     main_P4(); 
+extern uint32_t tos_P4;
 
 void hilevel_handler_rst(ctx_t* ctx) {
   /* Invalidate all entries in the process table, so it's clear they are not
@@ -89,7 +89,7 @@ void hilevel_handler_rst(ctx_t* ctx) {
 
   int_enable_irq();
 
-  /* Automatically execute the user programs P1 and P2 by setting the fields
+  /* Automatically execute the user programs P3 and P4 by setting the fields
    * in two associated PCBs.  Note in each case that
    *    
    * - the CPSR value of 0x50 means the processor is switched into USR mode, 
@@ -100,17 +100,17 @@ void hilevel_handler_rst(ctx_t* ctx) {
   memset( &procTab[ 0 ], 0, sizeof( pcb_t ) ); // initialise 0-th PCB = P_1
   procTab[ 0 ].pid      = 1;
   procTab[ 0 ].status   = STATUS_READY;
-  procTab[ 0 ].tos      = ( uint32_t )( &tos_P1  );
+  procTab[ 0 ].tos      = ( uint32_t )( &tos_P3  );
   procTab[ 0 ].ctx.cpsr = 0x50;
-  procTab[ 0 ].ctx.pc   = ( uint32_t )( &main_P1 );
+  procTab[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
   procTab[ 0 ].ctx.sp   = procTab[ 0 ].tos;
 
   memset( &procTab[ 1 ], 0, sizeof( pcb_t ) ); // initialise 1-st PCB = P_2
   procTab[ 1 ].pid      = 2;
   procTab[ 1 ].status   = STATUS_READY;
-  procTab[ 1 ].tos      = ( uint32_t )( &tos_P2  );
+  procTab[ 1 ].tos      = ( uint32_t )( &tos_P4  );
   procTab[ 1 ].ctx.cpsr = 0x50;
-  procTab[ 1 ].ctx.pc   = ( uint32_t )( &main_P2 );
+  procTab[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
   procTab[ 1 ].ctx.sp   = procTab[ 1 ].tos;
 
   /* Once the PCBs are initialised, we arbitrarily select the 0-th PCB to be 
