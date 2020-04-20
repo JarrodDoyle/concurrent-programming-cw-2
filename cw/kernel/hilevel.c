@@ -7,8 +7,11 @@
 
 #include "hilevel.h"
 
-pcb_t procTab[ MAX_PROCS ];
+pcb_t  procTab[ MAX_PROCS ];
 pcb_t* executing = NULL;
+
+int prioTab[ MAX_PROCS ];
+int agesTab[ MAX_PROCS ];
 
 // Changes currently executing program
 void dispatch( ctx_t* ctx, pcb_t* prev, pcb_t* next ) {
@@ -35,22 +38,33 @@ void dispatch( ctx_t* ctx, pcb_t* prev, pcb_t* next ) {
   return;
 }
 
-// Round robin, 1 <= n <= N , scheduler
+// Priority+Age, 1 <= n <= N , scheduler
 void schedule( ctx_t* ctx ) {
-  int i,j;
-  for (i=0; i<MAX_PROCS; i++) {
-    if (procTab[i].status != STATUS_INVALID && procTab[i].pid == executing->pid) {
-      break;
+  int current = NULL;
+  int next = NULL;
+  uint32_t highestPrio = 0;
+  for (int i=0; i<MAX_PROCS; i++) {
+    if (procTab[i].status != STATUS_INVALID) {
+      if (procTab[i].pid == executing->pid) {
+        current = i;
+      } else {
+        agesTab[i] += 1;
+      }
+
+      if (prioTab[i] + agesTab[i] > highestPrio) {
+        highestPrio = prioTab[i] + agesTab[i];
+        next = i;
+      }
     }
   }
-  for (j=1; j<=MAX_PROCS; j++) {
-    if (procTab[(i+j)%MAX_PROCS].status != STATUS_INVALID) {
-      break;
-    }
+
+  // Dispatch only if executing process has changed
+  if (current != next) {
+    dispatch(ctx, &procTab[current], &procTab[next]);
+    procTab[current].status = STATUS_READY;
+    procTab[next].status = STATUS_EXECUTING;
+    agesTab[next] = 0;
   }
-  dispatch(ctx, &procTab[i], &procTab[(i+j)%MAX_PROCS]);
-  procTab[i].status = STATUS_READY;
-  procTab[(i+j)%MAX_PROCS].status = STATUS_EXECUTING;
 
   return;
 }
@@ -106,6 +120,8 @@ void hilevel_handler_rst(ctx_t* ctx) {
   procTab[ 0 ].ctx.cpsr = 0x50;
   procTab[ 0 ].ctx.pc   = ( uint32_t )( &main_P3 );
   procTab[ 0 ].ctx.sp   = procTab[ 0 ].tos;
+  prioTab[ 0 ]          = 3;
+  agesTab[ 0 ]          = 0;
 
   memset( &procTab[ 1 ], 0, sizeof( pcb_t ) ); // initialise 1-st PCB = P_2
   procTab[ 1 ].pid      = 2;
@@ -114,6 +130,8 @@ void hilevel_handler_rst(ctx_t* ctx) {
   procTab[ 1 ].ctx.cpsr = 0x50;
   procTab[ 1 ].ctx.pc   = ( uint32_t )( &main_P4 );
   procTab[ 1 ].ctx.sp   = procTab[ 1 ].tos;
+  prioTab[ 1 ]          = 1;
+  agesTab[ 1 ]          = 0;
 
   /* Once the PCBs are initialised, we arbitrarily select the 0-th PCB to be 
    * executed: there is no need to preserve the execution context, since it 
