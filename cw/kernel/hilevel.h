@@ -40,7 +40,8 @@
  * - a type that captures a process PCB.
  */
 
-#define MAX_PROCS 4
+#define MAX_PROCS 8
+#define STACK_SIZE 128
 
 typedef int pid_t;
 

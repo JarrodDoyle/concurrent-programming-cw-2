@@ -12,18 +12,24 @@
  * carriage return character has been read, or a limit is reached).
  */
 
-void puts( char* x, int n ) {
-  for( int i = 0; i < n; i++ ) {
-    PL011_putc( UART1, x[ i ], true );
+void puts(char *x, int n)
+{
+  for (int i = 0; i < n; i++)
+  {
+    PL011_putc(UART1, x[i], true);
   }
 }
 
-void gets( char* x, int n ) {
-  for( int i = 0; i < n; i++ ) {
-    x[ i ] = PL011_getc( UART1, true );
-    
-    if( x[ i ] == '\x0A' ) {
-      x[ i ] = '\x00'; break;
+void gets(char *x, int n)
+{
+  for (int i = 0; i < n; i++)
+  {
+    x[i] = PL011_getc(UART1, true);
+
+    if (x[i] == '\x0A')
+    {
+      x[i] = '\x00';
+      break;
     }
   }
 }
@@ -34,18 +40,22 @@ void gets( char* x, int n ) {
  * into the kernel image, it returns a pointer to the entry point.
  */
 
-extern void main_P3(); 
-extern void main_P4(); 
-extern void main_P5(); 
+extern void main_P3();
+extern void main_P4();
+extern void main_P5();
 
-void* load( char* x ) {
-  if     ( 0 == strcmp( x, "P3" ) ) {
+void *load(char *x)
+{
+  if (0 == strcmp(x, "P3"))
+  {
     return &main_P3;
   }
-  else if( 0 == strcmp( x, "P4" ) ) {
+  else if (0 == strcmp(x, "P4"))
+  {
     return &main_P4;
   }
-  else if( 0 == strcmp( x, "P5" ) ) {
+  else if (0 == strcmp(x, "P5"))
+  {
     return &main_P5;
   }
 
@@ -84,43 +94,56 @@ void* load( char* x ) {
  *    would terminate the process whose PID is 3.
  */
 
-void main_console() {
-  while( 1 ) {
-    char cmd[ MAX_CMD_CHARS ];
+void main_console()
+{
+  while (1)
+  {
+    char cmd[MAX_CMD_CHARS];
 
     // step 1: write command prompt, then read command.
 
-    puts( "console$ ", 7 ); gets( cmd, MAX_CMD_CHARS );
+    puts("console$\n", 9);
+    gets(cmd, MAX_CMD_CHARS);
 
     // step 2: tokenize command.
 
-    int cmd_argc = 0; char* cmd_argv[ MAX_CMD_ARGS ];
+    int cmd_argc = 0;
+    char *cmd_argv[MAX_CMD_ARGS];
 
-    for( char* t = strtok( cmd, " " ); t != NULL; t = strtok( NULL, " " ) ) {
-      cmd_argv[ cmd_argc++ ] = t;
+    for (char *t = strtok(cmd, " "); t != NULL; t = strtok(NULL, " "))
+    {
+      cmd_argv[cmd_argc++] = t;
     }
 
     // step 3: execute command.
 
-    if     ( 0 == strcmp( cmd_argv[ 0 ], "execute"   ) ) {
-      void* addr = load( cmd_argv[ 1 ] );
+    if (0 == strcmp(cmd_argv[0], "execute"))
+    {
+      void *addr = load(cmd_argv[1]);
 
-      if( addr != NULL ) {
-        if( 0 == fork() ) {
-          exec( addr );
+      if (addr != NULL)
+      {
+        if (0 == fork())
+        {
+          exec(addr);
         }
       }
-      else {
-        puts( "unknown program\n", 16 );
+      else
+      {
+        puts("unknown program\n", 16);
       }
-    } 
-    else if( 0 == strcmp( cmd_argv[ 0 ], "terminate" ) ) {
-      kill( atoi( cmd_argv[ 1 ] ), SIG_TERM );
-    } 
-    else {
-      puts( "unknown command\n", 16 );
     }
+    else if (0 == strcmp(cmd_argv[0], "terminate"))
+    {
+      kill(atoi(cmd_argv[1]), SIG_TERM);
+    }
+    else
+    {
+      puts("unknown command\n", 16);
+    }
+
+    puts("looped", 6);
   }
 
-  exit( EXIT_SUCCESS );
+  exit(EXIT_SUCCESS);
 }

@@ -81,6 +81,7 @@ void schedule(ctx_t *ctx)
 }
 
 extern void main_console();
+extern void main_P3();
 
 void hilevel_handler_rst(ctx_t *ctx)
 {
@@ -123,13 +124,14 @@ void hilevel_handler_rst(ctx_t *ctx)
    * - the PC and SP values match the entry point and top of stack.
    */
 
-  int *tos = malloc(1000);
+  int *tos = malloc(STACK_SIZE) + STACK_SIZE;
   memset(&procTab[0], 0, sizeof(pcb_t));
   procTab[0].pid = 0;
   procTab[0].status = STATUS_READY;
   procTab[0].tos = (uint32_t)(tos);
   procTab[0].ctx.cpsr = 0x50;
-  procTab[0].ctx.pc = (uint32_t)(&main_console);
+  // procTab[0].ctx.pc = (uint32_t)(&main_console);
+  procTab[0].ctx.pc = (uint32_t)(&main_P3);
   procTab[0].ctx.sp = procTab[0].tos;
   prioTab[0] = 0;
   agesTab[0] = 0;
@@ -219,6 +221,13 @@ void hilevel_handler_svc(ctx_t *ctx, uint32_t id)
 
   case 0x03:
   { // 0x03 => fork()
+    PL011_putc(UART0, '[', true);
+    PL011_putc(UART0, 'F', true);
+    PL011_putc(UART0, 'O', true);
+    PL011_putc(UART0, 'R', true);
+    PL011_putc(UART0, 'K', true);
+    PL011_putc(UART0, ']', true);
+
     // Create child pcb_t with unique pid_t
     int child_pid = -1;
     for (int i = 0; i < MAX_PROCS; i++)
@@ -227,7 +236,7 @@ void hilevel_handler_svc(ctx_t *ctx, uint32_t id)
       {
         // Replicate parent state in child
         child_pid = i;
-        int *tos_child = malloc(1000) + 1000;
+        int *tos_child = malloc(STACK_SIZE) + STACK_SIZE;
 
         // Replicate parent process
         memset(&procTab[i], 0, sizeof(pcb_t));
@@ -244,20 +253,13 @@ void hilevel_handler_svc(ctx_t *ctx, uint32_t id)
         }
 
         // Copy stack
-        memcpy(tos_child - 1000, (int *)(executing->tos) - 1000, 1000);
+        memcpy(tos_child - STACK_SIZE, (int *)(executing->tos) - STACK_SIZE, STACK_SIZE);
         prioTab[i] = prioTab[executing->pid];
         agesTab[i] = agesTab[executing->pid];
 
         break;
       }
     }
-
-    PL011_putc(UART0, '[', true);
-    PL011_putc(UART0, 'F', true);
-    PL011_putc(UART0, 'O', true);
-    PL011_putc(UART0, 'R', true);
-    PL011_putc(UART0, 'K', true);
-    PL011_putc(UART0, ']', true);
 
     // Return child pid to parent and 0 to child
     ctx->gpr[0] = child_pid;
@@ -275,37 +277,33 @@ void hilevel_handler_svc(ctx_t *ctx, uint32_t id)
 
   case 0x05:
   { // 0x05 => exec(x)
+    // int *x = (int *)(ctx->gpr[0]);
+    void *x = (void *)(ctx->gpr[0]);
+
+    int pid = executing->pid;
+    int tos = executing->tos;
+
+    // Clear stack
+    memset((int *)(tos)-STACK_SIZE, 0, STACK_SIZE);
+
+    // Update process
+    memset(&procTab[pid], 0, sizeof(pcb_t));
+    procTab[pid].pid = pid;
+    procTab[pid].status = STATUS_READY;
+    procTab[pid].tos = tos;
+    procTab[pid].ctx.cpsr = 0x50;
+    procTab[pid].ctx.pc = (uint32_t)(x);
+    procTab[pid].ctx.sp = procTab[pid].tos;
+
+    // prioTab[pid] = 0;
+    // agesTab[pid] = 0;
+
     PL011_putc(UART0, '[', true);
     PL011_putc(UART0, 'E', true);
     PL011_putc(UART0, 'X', true);
     PL011_putc(UART0, 'E', true);
     PL011_putc(UART0, 'C', true);
     PL011_putc(UART0, ']', true);
-
-    int *x = (int *)(ctx->gpr[0]);
-
-    // int pid = executing->pid;
-    // procTab[pid].status = STATUS_READY;
-    // procTab[pid].ctx.cpsr = 0x50;
-    // procTab[pid].ctx.pc = (uint32_t)(x);
-    // prioTab[pid] = 10;
-    // agesTab[pid] = 0;
-    // memset((int *)(procTab[pid].ctx.sp), 0, 1000);
-
-    // Update pcb and ctx
-    int pid = executing->pid;
-    procTab[pid].status = STATUS_READY;
-    procTab[pid].ctx.cpsr = 0x50;
-    procTab[pid].ctx.pc = (uint32_t)(x);
-    procTab[pid].ctx.sp = procTab[pid].tos;
-    procTab[pid].ctx.lr = 0;
-    for (int i = 0; i < 13; i++)
-    {
-      procTab[pid].ctx.gpr[i] = 0;
-    }
-
-    // Clear stack
-    memset((int *)(procTab[pid].tos) - 1000, 0, 1000);
 
     break;
   }
