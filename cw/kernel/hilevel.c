@@ -13,9 +13,20 @@ pcb_t *executing = NULL;
 int prioTab[MAX_PROCS];
 int agesTab[MAX_PROCS];
 
+// Utility function for printing strings
+void print(char str[])
+{
+  int len = strlen(str);
+  for (int i = 0; i < len; i++)
+  {
+    PL011_putc(UART0, str[i], true);
+  }
+}
+
 // Changes currently executing program
 void dispatch(ctx_t *ctx, pcb_t *prev, pcb_t *next)
 {
+  print("[DISPATCH]");
   char prev_pid = '?', next_pid = '?';
 
   if (NULL != prev)
@@ -29,12 +40,9 @@ void dispatch(ctx_t *ctx, pcb_t *prev, pcb_t *next)
     next_pid = '0' + next->pid;
   }
 
-  PL011_putc(UART0, '[', true);
-  PL011_putc(UART0, prev_pid, true);
-  PL011_putc(UART0, '-', true);
-  PL011_putc(UART0, '>', true);
-  PL011_putc(UART0, next_pid, true);
-  PL011_putc(UART0, ']', true);
+  char str[50];
+  sprintf(str, "[%c->%c]", prev_pid, next_pid);
+  print(str);
 
   executing = next; // update   executing process to P_{next}
 
@@ -44,6 +52,8 @@ void dispatch(ctx_t *ctx, pcb_t *prev, pcb_t *next)
 // Priority+Age, 1 <= n <= N , scheduler
 void schedule(ctx_t *ctx)
 {
+  print("[SCHEDULE]");
+
   int current = NULL;
   int next = NULL;
   uint32_t highestPrio = 0;
@@ -85,6 +95,8 @@ extern void main_P3();
 
 void hilevel_handler_rst(ctx_t *ctx)
 {
+  print("[RESET]");
+
   /* Invalidate all entries in the process table, so it's clear they are not
    * representing valid (i.e., active) processes.
    */
@@ -130,8 +142,8 @@ void hilevel_handler_rst(ctx_t *ctx)
   procTab[0].status = STATUS_READY;
   procTab[0].tos = (uint32_t)(tos);
   procTab[0].ctx.cpsr = 0x50;
-  // procTab[0].ctx.pc = (uint32_t)(&main_console);
-  procTab[0].ctx.pc = (uint32_t)(&main_P3);
+  procTab[0].ctx.pc = (uint32_t)(&main_console);
+  // procTab[0].ctx.pc = (uint32_t)(&main_P3);
   procTab[0].ctx.sp = procTab[0].tos;
   prioTab[0] = 0;
   agesTab[0] = 0;
@@ -156,7 +168,6 @@ void hilevel_handler_irq(ctx_t *ctx)
 
   if (id == GIC_SOURCE_TIMER0)
   {
-    // PL011_putc(UART0, 'T', true);
     schedule(ctx);
     TIMER0->Timer1IntClr = 0x01;
   }
@@ -221,12 +232,7 @@ void hilevel_handler_svc(ctx_t *ctx, uint32_t id)
 
   case 0x03:
   { // 0x03 => fork()
-    PL011_putc(UART0, '[', true);
-    PL011_putc(UART0, 'F', true);
-    PL011_putc(UART0, 'O', true);
-    PL011_putc(UART0, 'R', true);
-    PL011_putc(UART0, 'K', true);
-    PL011_putc(UART0, ']', true);
+    print("[FORK]");
 
     // Create child pcb_t with unique pid_t
     int child_pid = -1;
@@ -277,33 +283,23 @@ void hilevel_handler_svc(ctx_t *ctx, uint32_t id)
 
   case 0x05:
   { // 0x05 => exec(x)
-    // int *x = (int *)(ctx->gpr[0]);
     void *x = (void *)(ctx->gpr[0]);
 
     int pid = executing->pid;
-    int tos = executing->tos;
+
+    procTab[pid].status = STATUS_READY;
+    memset(ctx, 0, sizeof(ctx));
+    ctx->cpsr = 0x50;
+    ctx->pc = (uint32_t)(x);
+    ctx->sp = procTab[pid].tos;
 
     // Clear stack
-    memset((int *)(tos)-STACK_SIZE, 0, STACK_SIZE);
+    memset((int *)(executing->tos) - STACK_SIZE, 0, STACK_SIZE);
 
-    // Update process
-    memset(&procTab[pid], 0, sizeof(pcb_t));
-    procTab[pid].pid = pid;
-    procTab[pid].status = STATUS_READY;
-    procTab[pid].tos = tos;
-    procTab[pid].ctx.cpsr = 0x50;
-    procTab[pid].ctx.pc = (uint32_t)(x);
-    procTab[pid].ctx.sp = procTab[pid].tos;
+    prioTab[pid] = 0;
+    agesTab[pid] = 0;
 
-    // prioTab[pid] = 0;
-    // agesTab[pid] = 0;
-
-    PL011_putc(UART0, '[', true);
-    PL011_putc(UART0, 'E', true);
-    PL011_putc(UART0, 'X', true);
-    PL011_putc(UART0, 'E', true);
-    PL011_putc(UART0, 'C', true);
-    PL011_putc(UART0, ']', true);
+    print("[EXEC]");
 
     break;
   }

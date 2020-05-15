@@ -141,8 +141,6 @@ void main_console()
     {
       puts("unknown command\n", 16);
     }
-
-    puts("looped", 6);
   }
 
   exit(EXIT_SUCCESS);
